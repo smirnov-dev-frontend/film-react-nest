@@ -8,6 +8,8 @@ import { FilmsController } from './films/films.controller';
 import { OrderController } from './order/order.controller';
 import { FilmsService } from './films/films.service';
 import { OrderService } from './order/order.service';
+import { databaseProvider } from './repository/database.provider';
+import { FilmsRepository } from './repository/films.repository';
 
 @Module({
   imports: [
@@ -21,6 +23,12 @@ import { OrderService } from './order/order.service';
     }),
   ],
   controllers: [FilmsController, OrderController],
-  providers: [configProvider, FilmsService, OrderService],
+  providers: [
+    configProvider,
+    databaseProvider,
+    FilmsRepository,
+    FilmsService,
+    OrderService,
+  ],
 })
 export class AppModule {}
