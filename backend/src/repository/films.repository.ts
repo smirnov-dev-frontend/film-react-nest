@@ -26,6 +26,44 @@ export class FilmsRepository {
     return film.schedule.map((session) => this.toScheduleDto(session));
   }
 
+  async findSession(
+    filmId: string,
+    sessionId: string,
+  ): Promise<ScheduleDto | null> {
+    const schedule = await this.findScheduleByFilmId(filmId);
+    return schedule?.find((session) => session.id === sessionId) ?? null;
+  }
+
+  async takeSeats(
+    filmId: string,
+    sessionId: string,
+    seats: string[],
+  ): Promise<boolean> {
+    const result = await this.filmModel
+      .updateOne(
+        {
+          id: filmId,
+          schedule: { $elemMatch: { id: sessionId, taken: { $nin: seats } } },
+        },
+        { $push: { 'schedule.$.taken': { $each: seats } } },
+      )
+      .exec();
+    return result.modifiedCount === 1;
+  }
+
+  async releaseSeats(
+    filmId: string,
+    sessionId: string,
+    seats: string[],
+  ): Promise<void> {
+    await this.filmModel
+      .updateOne(
+        { id: filmId, 'schedule.id': sessionId },
+        { $pullAll: { 'schedule.$.taken': seats } },
+      )
+      .exec();
+  }
+
   private toFilmDto(film: Film): FilmDto {
     const {
       id,

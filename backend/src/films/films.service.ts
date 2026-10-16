@@ -16,7 +16,7 @@ export class FilmsService {
   async findSchedule(id: string): Promise<ListResponseDto<ScheduleDto>> {
     const items = await this.filmsRepository.findScheduleByFilmId(id);
     if (!items) {
-      throw new NotFoundException(`Фильм с id ${id} не найден`);
+      throw new NotFoundException({ error: `Фильм с id ${id} не найден` });
     }
     return { total: items.length, items };
   }
