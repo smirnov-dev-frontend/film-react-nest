@@ -1,6 +1,6 @@
 import { Connection, createConnection } from 'mongoose';
 
-import { AppConfig, CONFIG } from '../app.config.provider';
+import { AppConfig, CONFIG } from '../../app.config.provider';
 
 export const DATABASE_CONNECTION = 'DATABASE_CONNECTION';
 
