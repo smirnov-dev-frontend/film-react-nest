@@ -30,6 +30,7 @@ const isDriver =
     ServeStaticModule.forRoot({
       rootPath: path.join(__dirname, '..', 'public', 'content', 'afisha'),
       serveRoot: '/content/afisha',
+      exclude: ['/content/afisha/(.*)'],
     }),
     ConditionalModule.registerWhen(PostgresModule, isDriver('postgres')),
     ConditionalModule.registerWhen(MongodbModule, isDriver('mongodb')),
