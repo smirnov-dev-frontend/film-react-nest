@@ -2,7 +2,7 @@ import { ConfigService } from '@nestjs/config';
 
 export const CONFIG = 'CONFIG';
 
-export const DATABASE_DRIVERS = ['postgres', 'mongodb'] as const;
+export const DATABASE_DRIVERS = ['postgres'] as const;
 
 export type DatabaseDriver = (typeof DATABASE_DRIVERS)[number];
 
@@ -30,7 +30,9 @@ export const configProvider = {
     port: Number(configService.get<string>('PORT', '3000')),
     database: {
       driver: parseDriver(configService.get<string>('DATABASE_DRIVER')),
-      url: configService.get<string>('DATABASE_URL'),
+      host: configService.get<string>('DATABASE_HOST', 'localhost'),
+      port: Number(configService.get<string>('DATABASE_PORT', '5432')),
+      name: configService.get<string>('DATABASE_NAME', 'films'),
       username: configService.get<string>('DATABASE_USERNAME'),
       password: configService.get<string>('DATABASE_PASSWORD'),
     },
@@ -44,7 +46,9 @@ export interface AppConfig {
 
 export interface AppConfigDatabase {
   driver: DatabaseDriver;
-  url: string;
+  host: string;
+  port: number;
+  name: string;
   username: string;
   password: string;
 }
