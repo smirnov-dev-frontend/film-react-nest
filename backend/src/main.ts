@@ -1,8 +1,13 @@
-import { BadRequestException, ValidationPipe } from '@nestjs/common';
+import {
+  BadRequestException,
+  LoggerService,
+  ValidationPipe,
+} from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { ValidationError } from 'class-validator';
 import { AppModule } from './app.module';
 import { AppConfig, CONFIG } from './app.config.provider';
+import { APP_LOGGER } from './logger/logger.provider';
 
 const collectMessages = (errors: ValidationError[]): string[] =>
   errors.flatMap((error) => [
@@ -11,7 +16,8 @@ const collectMessages = (errors: ValidationError[]): string[] =>
   ]);
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, { bufferLogs: true });
+  app.useLogger(app.get<LoggerService>(APP_LOGGER));
   app.setGlobalPrefix('api/afisha');
   app.enableCors();
   app.useGlobalPipes(

@@ -9,6 +9,7 @@ import { OrderController } from './order/order.controller';
 import { FilmsService } from './films/films.service';
 import { OrderService } from './order/order.service';
 import { PostgresModule } from './repository/postgres/postgres.module';
+import { loggerProvider } from './logger/logger.provider';
 
 @Module({
   imports: [
@@ -25,6 +26,6 @@ import { PostgresModule } from './repository/postgres/postgres.module';
     PostgresModule,
   ],
   controllers: [FilmsController, OrderController],
-  providers: [configProvider, FilmsService, OrderService],
+  providers: [configProvider, loggerProvider, FilmsService, OrderService],
 })
 export class AppModule {}
