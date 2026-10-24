@@ -1,0 +1,12 @@
+node_modules
+dist
+storybook-static
+.env
+.env.*
+Dockerfile
+.dockerignore
+README.md
+.git
+.vscode
+.idea
+.DS_Store
