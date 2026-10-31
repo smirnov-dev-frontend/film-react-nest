@@ -4,22 +4,31 @@
 
 Данные о фильмах, сеансах и бронированиях хранятся в PostgreSQL, работа с базой построена на TypeORM.
 
+## Развёрнутое приложение
+
+- [Сайт Film!](https://film-smirnov.students.nomorepartiessite.ru/)
+- [API: список фильмов](https://api.film-smirnov.students.nomorepartiessite.ru/api/afisha/films)
+
+Приложение работает на ВМ в Yandex Cloud. nginx обслуживает HTTPS, перенаправляет HTTP на HTTPS и раздаёт фронтенд из общего Docker-тома. Сертификат Let's Encrypt продлевается автоматически; после продления nginx перечитывает его без остановки контейнеров.
+
+Команды запуска и обновления контейнеров, подключения к pgAdmin и проверки сертификата собраны в [DEPLOYMENT.md](DEPLOYMENT.md).
+
 ## Технологии
 
 **Бэкенд:** Node.js, TypeScript, Nest.js 10, TypeORM 0.3 и PostgreSQL, class-validator и class-transformer, @nestjs/config, @nestjs/serve-static.
 
 **Фронтенд:** React 18, TypeScript, Vite, SCSS-модули, Storybook.
 
-**Инструменты:** ESLint, Prettier, Postman, GitHub Actions.
+**Инструменты:** Jest, Supertest, ESLint, Prettier, Postman, Docker Compose, nginx, GitHub Actions, GitHub Container Registry, Certbot.
 
 ## API
 
-| Метод | Эндпоинт | Описание |
-|---|---|---|
-| `GET` | `/api/afisha/films` | список фильмов с расписанием сеансов |
-| `GET` | `/api/afisha/films/:id/schedule` | расписание сеансов фильма |
-| `POST` | `/api/afisha/order` | бронирование билетов |
-| `GET` | `/content/afisha/*` | статические файлы (афиши фильмов) |
+| Метод  | Эндпоинт                         | Описание                             |
+| ------ | -------------------------------- | ------------------------------------ |
+| `GET`  | `/api/afisha/films`              | список фильмов с расписанием сеансов |
+| `GET`  | `/api/afisha/films/:id/schedule` | расписание сеансов фильма            |
+| `POST` | `/api/afisha/order`              | бронирование билетов                 |
+| `GET`  | `/content/afisha/*`              | статические файлы (афиши фильмов)    |
 
 Списки возвращаются в формате `{ total, items }`, ошибки — в формате `{ error }`. Полное описание API — в `film.yml` (OpenAPI), коллекция запросов — в `film.postman.json`.
 
@@ -27,12 +36,14 @@
 
 ```
 backend/src/
-├── main.ts                    точка входа: префикс /api/afisha, CORS, ValidationPipe
+├── main.ts                    запуск приложения и подключение логгера
+├── configure-app.ts           префикс /api/afisha, CORS, ValidationPipe
 ├── app.module.ts              корневой модуль: конфиг, статика, подключение БД
 ├── app.config.provider.ts     чтение и проверка переменных окружения
 ├── common/dto/                общий DTO ответа-списка ListResponseDto<T>
 ├── films/                     контроллер, сервис и DTO фильмов и сеансов
 ├── order/                     контроллер, сервис и DTO заказа
+├── logger/                    DevLogger, JsonLogger, TskvLogger и провайдер выбора
 └── repository/
     ├── films.repository.ts    абстрактный FilmsRepository — интерфейс хранилища
     ├── films.mapper.ts        конвертеры сущностей БД в DTO
@@ -50,6 +61,42 @@ backend/src/
 **Валидация.** Тело заказа проверяется декораторами class-validator в DTO и глобальным `ValidationPipe`: email, непустой список билетов, UUID фильма и сеанса, ряд и место — целые числа от 1. Лишние поля отбрасываются, некорректный запрос получает ответ 400.
 
 **Бронирование.** Сервис проверяет, что сеанс существует, место есть в зале, не занято и не повторяется в заказе. Затем места записываются в транзакции с блокировкой строки сеанса. Поэтому одно место нельзя забронировать дважды даже при одновременных заказах. Время и цена в билетах берутся из базы, а не из запроса.
+
+**Логирование.** `LOGGER_TYPE` выбирает формат: `dev` — стандартный цветной вывод Nest, `json` — JSON, `tskv` — строковые пары `ключ=значение` через табуляцию. По умолчанию используется `dev`. Логгеры поддерживают уровни `log`, `error`, `warn`, `debug`, `verbose`, `fatal`. При старте логи буферизуются до подключения выбранного логгера.
+
+## Запуск через Docker Compose
+
+Из корня проекта создайте `.env` из примера и запустите контейнеры:
+
+```bash
+cp .env.example .env
+docker compose up -d --build
+```
+
+Сайт доступен на `http://localhost`, pgAdmin — на `http://localhost:8080`. Параметры PostgreSQL и входа в pgAdmin задаются в корневом `.env`. Значения паролей из примера предназначены для локального запуска; на сервере используются сгенерированные пароли.
+
+Перед использованием приложения создайте таблицы и загрузите данные через pgAdmin по [инструкции](DEPLOYMENT.md#наполнение-базы-через-pgadmin). При локальном подключении параметры PostgreSQL те же: хост `database`, порт `5432`, база и пользователь `prac`.
+
+Контейнер `frontend` копирует сборку в том `frontend_dist` и завершается с кодом 0. nginx использует этот том для раздачи сайта. Данные PostgreSQL и настройки pgAdmin хранятся в отдельных томах.
+
+```bash
+docker compose ps -a
+docker compose down
+```
+
+## Тесты и сборка бэкенда
+
+Из папки `backend`:
+
+```bash
+npm ci
+npm test -- --runInBand
+npm run test:cov -- --runInBand
+npm run lint
+npm run build
+```
+
+Тесты проверяют форматы JSON и TSKV, вывод методов логгеров, работу контроллеров с моками сервисов, HTTP-маршруты, коды ответов и валидацию запросов. HTTP-проверки используют ту же функцию `configureApp`, что и приложение.
 
 ## Установка
 
@@ -86,13 +133,14 @@ psql -U postgres -d prac -f backend/test/prac.shedules.sql
 
 Создайте `.env` файл из примера `.env.example`, в нём укажите:
 
-* `PORT` — порт бэкенда, по умолчанию `3000`
-* `DATABASE_DRIVER` — тип СУБД, `postgres`
-* `DATABASE_HOST` — адрес сервера БД, по умолчанию `localhost`
-* `DATABASE_PORT` — порт сервера БД, по умолчанию `5432`
-* `DATABASE_NAME` — имя базы данных, по умолчанию `films`
-* `DATABASE_USERNAME` — имя пользователя БД
-* `DATABASE_PASSWORD` — пароль пользователя БД
+- `PORT` — порт бэкенда, по умолчанию `3000`
+- `DATABASE_DRIVER` — тип СУБД, `postgres`
+- `DATABASE_HOST` — адрес сервера БД, по умолчанию `localhost`
+- `DATABASE_PORT` — порт сервера БД, по умолчанию `5432`
+- `DATABASE_NAME` — имя базы данных, по умолчанию `films`
+- `DATABASE_USERNAME` — имя пользователя БД
+- `DATABASE_PASSWORD` — пароль пользователя БД
+- `LOGGER_TYPE` — формат логов: `dev`, `json` или `tskv`, по умолчанию `dev`
 
 PostgreSQL должна быть установлена и запущена.
 

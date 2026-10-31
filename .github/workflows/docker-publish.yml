@@ -22,6 +22,11 @@ jobs:
           - backend
           - frontend
           - nginx
+        include:
+          - service: frontend
+            build_args: |
+              VITE_API_URL=https://api.film-smirnov.students.nomorepartiessite.ru/api/afisha
+              VITE_CDN_URL=https://api.film-smirnov.students.nomorepartiessite.ru/content/afisha
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -41,6 +46,7 @@ jobs:
         with:
           context: ./${{ matrix.service }}
           platforms: linux/amd64
+          build-args: ${{ matrix.build_args }}
           push: true
           tags: |
             ${{ env.REGISTRY }}/${{ github.repository }}-${{ matrix.service }}:latest
