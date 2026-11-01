@@ -1,0 +1,84 @@
+services:
+  backend:
+    build: ./backend
+    image: ghcr.io/smirnov-dev-frontend/film-react-nest-backend:latest
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      PORT: 3000
+      DATABASE_DRIVER: postgres
+      DATABASE_HOST: database
+      DATABASE_PORT: 5432
+      DATABASE_NAME: ${POSTGRES_DB}
+      DATABASE_USERNAME: ${POSTGRES_USER}
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD}
+    depends_on:
+      database:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/content/afisha/bg1s.jpg"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    networks:
+      - film-network
+
+  frontend:
+    build: ./frontend
+    image: ghcr.io/smirnov-dev-frontend/film-react-nest-frontend:latest
+    restart: on-failure
+    volumes:
+      - frontend_dist:/var/www/frontend
+
+  nginx:
+    build: ./nginx
+    image: ghcr.io/smirnov-dev-frontend/film-react-nest-nginx:latest
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - frontend_dist:/var/www/frontend:ro
+    depends_on:
+      frontend:
+        condition: service_completed_successfully
+      backend:
+        condition: service_started
+    networks:
+      - film-network
+
+  database:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - film-network
+
+  pgadmin:
+    image: dpage/pgadmin4:8
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "8080:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      - database
+    networks:
+      - film-network
+
+networks:
+  film-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  pgadmin_data:
+  frontend_dist:
